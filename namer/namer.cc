@@ -1343,8 +1343,9 @@ class SymbolDefiner {
                 break;
             }
             case core::FoundDefinitionRef::Kind::StaticField: {
-                const auto &staticField = ref.staticField(foundDefs);
-                insertStaticField(ctx.withOwner(getOwnerSymbol(staticField.owner)), staticField);
+                // TODO(jez) Split foundDefs into three separate lists (classes, non-deletables, methods)
+                // const auto &staticField = ref.staticField(foundDefs);
+                // insertStaticField(ctx.withOwner(getOwnerSymbol(staticField.owner)), staticField);
                 break;
             }
             case core::FoundDefinitionRef::Kind::TypeMember: {
@@ -1424,6 +1425,14 @@ public:
 
         for (auto ref : foundDefs.nonDeletableDefinitions()) {
             defineNonDeletableSingle(ctx, ref);
+        }
+
+        for (auto ref : foundDefs.nonDeletableDefinitions()) {
+            if (ref.kind() != core::FoundDefinitionRef::Kind::StaticField) {
+                continue;
+            }
+            const auto &staticField = ref.staticField(foundDefs);
+            insertStaticField(ctx.withOwner(getOwnerSymbol(staticField.owner)), staticField);
         }
 
         // This currently interleaves deleting and defining across files.
