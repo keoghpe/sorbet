@@ -506,7 +506,7 @@ public:
  * Defines symbols for all of the definitions found via SymbolFinder. Single threaded.
  */
 class SymbolDefiner {
-    const core::FoundDefinitions * const foundDefs;
+    const core::FoundDefinitions *const foundDefs;
     const optional<core::FoundDefHashes> oldFoundHashes;
     // See getOwnerSymbol
     vector<core::ClassOrModuleRef> definedClasses;
@@ -1925,8 +1925,7 @@ struct IntermediateState {
     vector<ast::ParsedFile> trees;
 };
 
-IntermediateState findSymbols(const core::GlobalState &gs, vector<ast::ParsedFile> trees,
-                              WorkerPool &workers) {
+IntermediateState findSymbols(const core::GlobalState &gs, vector<ast::ParsedFile> trees, WorkerPool &workers) {
     Timer timeit(gs.tracer(), "naming.findSymbols");
     auto resultq = make_shared<BlockingBoundedQueue<vector<SymbolFinderResult>>>(trees.size());
     auto fileq = make_shared<ConcurrentBoundedQueue<ast::ParsedFile>>(trees.size());
@@ -1973,10 +1972,10 @@ IntermediateState findSymbols(const core::GlobalState &gs, vector<ast::ParsedFil
     return IntermediateState{move(allFoundDefinitions), move(trees)};
 }
 
-variant<IntermediateState, ast::ParsedFilesOrCancelled> defineSymbols(core::GlobalState &gs, IntermediateState state,
-                                                                      WorkerPool &workers,
-                                                                      UnorderedMap<core::FileRef, core::FoundDefHashes> &&oldFoundHashesForFiles,
-                                                                      core::FoundDefHashes *foundHashesOut) {
+variant<IntermediateState, ast::ParsedFilesOrCancelled>
+defineSymbols(core::GlobalState &gs, IntermediateState state, WorkerPool &workers,
+              UnorderedMap<core::FileRef, core::FoundDefHashes> &&oldFoundHashesForFiles,
+              core::FoundDefHashes *foundHashesOut) {
     Timer timeit(gs.tracer(), "naming.defineSymbols");
     auto &allFoundDefinitions = state.foundDefs;
     const auto &epochManager = *gs.epochManager;
@@ -2078,7 +2077,8 @@ vector<ast::ParsedFile> symbolizeTrees(const core::GlobalState &gs, Intermediate
         SymbolFinderResult job;
         for (auto result = fileq->try_pop(job); !result.done(); result = fileq->try_pop(job)) {
             if (result.gotItem()) {
-                Timer timeit(gs.tracer(), "naming.symbolizeTreesOne", {{"file", string(job.tree.file.data(gs).path())}});
+                Timer timeit(gs.tracer(), "naming.symbolizeTreesOne",
+                             {{"file", string(job.tree.file.data(gs).path())}});
                 core::Context ctx(gs, core::Symbols::root(), job.tree.file);
                 ast::ShallowWalk::apply(ctx, inserter, job.tree.tree);
                 output.trees.emplace_back(move(job.tree));
