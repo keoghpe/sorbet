@@ -506,7 +506,7 @@ public:
  * Defines symbols for all of the definitions found via SymbolFinder. Single threaded.
  */
 class SymbolDefiner {
-    const core::FoundDefinitions foundDefs;
+    const core::FoundDefinitions * const foundDefs;
     const optional<core::FoundDefHashes> oldFoundHashes;
     // See getOwnerSymbol
     vector<core::ClassOrModuleRef> definedClasses;
@@ -523,7 +523,7 @@ class SymbolDefiner {
                 return ref.symbol();
             }
             case core::FoundDefinitionRef::Kind::ClassRef: {
-                auto &klassRef = ref.klassRef(foundDefs);
+                auto &klassRef = ref.klassRef(*foundDefs);
                 auto newOwner = squashNames(ctx, klassRef.owner, owner);
                 return getOrDefineSymbol(ctx.withOwner(newOwner), klassRef.name, klassRef.loc);
             }
@@ -1219,18 +1219,18 @@ class SymbolDefiner {
     void defineNonDeletableSingle(core::MutableContext ctx, core::FoundDefinitionRef ref) {
         switch (ref.kind()) {
             case core::FoundDefinitionRef::Kind::Class: {
-                const auto &klass = ref.klass(foundDefs);
+                const auto &klass = ref.klass(*foundDefs);
                 ENFORCE(definedClasses.size() == ref.idx());
                 definedClasses.emplace_back(insertClass(ctx.withOwner(getOwnerSymbol(klass.owner)), klass));
                 break;
             }
             case core::FoundDefinitionRef::Kind::StaticField: {
-                const auto &staticField = ref.staticField(foundDefs);
+                const auto &staticField = ref.staticField(*foundDefs);
                 insertStaticField(ctx.withOwner(getOwnerSymbol(staticField.owner)), staticField);
                 break;
             }
             case core::FoundDefinitionRef::Kind::TypeMember: {
-                const auto &typeMember = ref.typeMember(foundDefs);
+                const auto &typeMember = ref.typeMember(*foundDefs);
                 insertTypeMember(ctx.withOwner(getOwnerSymbol(typeMember.owner)), typeMember);
                 break;
             }
@@ -1292,14 +1292,14 @@ class SymbolDefiner {
     }
 
 public:
-    SymbolDefiner(unique_ptr<core::FoundDefinitions> foundDefs, optional<core::FoundDefHashes> oldFoundHashes)
-        : foundDefs(move(*foundDefs)), oldFoundHashes(move(oldFoundHashes)) {}
+    SymbolDefiner(const core::FoundDefinitions *foundDefs, optional<core::FoundDefHashes> oldFoundHashes)
+        : foundDefs(foundDefs), oldFoundHashes(move(oldFoundHashes)) {}
 
     void run(core::MutableContext ctx) {
-        definedClasses.reserve(foundDefs.klasses().size());
-        definedMethods.reserve(foundDefs.methods().size());
+        definedClasses.reserve(foundDefs->klasses().size());
+        definedMethods.reserve(foundDefs->methods().size());
 
-        for (auto ref : foundDefs.nonDeletableDefinitions()) {
+        for (auto ref : foundDefs->nonDeletableDefinitions()) {
             defineNonDeletableSingle(ctx, ref);
         }
 
@@ -1317,7 +1317,7 @@ public:
             }
         }
 
-        for (auto &method : foundDefs.methods()) {
+        for (auto &method : foundDefs->methods()) {
             if (method.arityHash.isAliasMethod()) {
                 // We need alias methods in the FoundDefinitions list not so that we can actually
                 // create method symbols for them yet, but just so we can know which alias methods
@@ -1327,7 +1327,7 @@ public:
             definedMethods.emplace_back(insertMethod(ctx.withOwner(getOwnerSymbol(method.owner)), method));
         }
 
-        for (const auto &modifier : foundDefs.modifiers()) {
+        for (const auto &modifier : foundDefs->modifiers()) {
             const auto owner = getOwnerSymbol(modifier.owner);
             switch (modifier.kind) {
                 case core::FoundModifier::Kind::Method:
@@ -1345,8 +1345,8 @@ public:
 
     void populateFoundDefHashes(core::Context ctx, core::FoundDefHashes &foundHashesOut) {
         ENFORCE(foundHashesOut.methodHashes.empty());
-        foundHashesOut.methodHashes.reserve(foundDefs.methods().size());
-        for (const auto &method : foundDefs.methods()) {
+        foundHashesOut.methodHashes.reserve(foundDefs->methods().size());
+        for (const auto &method : foundDefs->methods()) {
             auto owner = method.owner;
             auto fullNameHash = core::FullNameHash(ctx, method.name);
             foundHashesOut.methodHashes.emplace_back(owner.idx(), method.flags.isSelfMethod, fullNameHash,
@@ -1994,7 +1994,7 @@ ast::ParsedFilesOrCancelled defineSymbols(core::GlobalState &gs, vector<SymbolFi
         auto frefIt = oldFoundHashesForFiles.find(fref);
         auto oldFoundHashes =
             frefIt == oldFoundHashesForFiles.end() ? optional<core::FoundDefHashes>() : std::move(frefIt->second);
-        SymbolDefiner symbolDefiner(move(fileFoundDefinitions.names), move(oldFoundHashes));
+        SymbolDefiner symbolDefiner(fileFoundDefinitions.names.get(), move(oldFoundHashes));
         output.emplace_back(move(fileFoundDefinitions.tree));
         symbolDefiner.run(ctx);
         if (foundHashesOut != nullptr) {
