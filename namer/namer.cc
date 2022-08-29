@@ -1511,6 +1511,10 @@ public:
             definedMethods.emplace_back(insertMethod(ctx.withOwner(getOwnerSymbol(method.owner)), method));
         }
 
+        for (auto &field : foundDefs.fields()) {
+            insertField(ctx.withOwner(getOwnerSymbol(field.owner)), field);
+        }
+
         for (const auto &modifier : foundDefs.modifiers()) {
             const auto owner = getOwnerSymbol(modifier.owner);
             switch (modifier.kind) {
